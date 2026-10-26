@@ -19,6 +19,12 @@ class Connection extends Field
 {
     private const DISCONNECT_BUTTON_ID = 'mago-higgsfield-disconnect';
 
+    /**
+     * @param Context $context
+     * @param OAuthService $oauth
+     * @param SecureHtmlRenderer $htmlRenderer
+     * @param array<string,mixed> $data
+     */
     public function __construct(
         Context $context,
         private readonly OAuthService $oauth,
@@ -57,7 +63,11 @@ class Connection extends Field
         if (!$status['can_refresh'] && $status['expires_at'] > 0) {
             $html .= '<p class="note"><span>' . $this->escapeHtml(__(
                 'Higgsfield gave no refresh token; reconnect after %1.',
-                date('Y-m-d H:i', $status['expires_at'])
+                $this->formatDate(
+                    new \DateTimeImmutable('@' . $status['expires_at']),
+                    \IntlDateFormatter::MEDIUM,
+                    true
+                )
             )) . '</span></p>';
         }
 

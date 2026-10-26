@@ -18,7 +18,7 @@ class TokenStore
     private const FLAG_CODE = 'mago_higgsfield_oauth';
 
     /** Keys whose values are encrypted at rest. */
-    private const ENCRYPTED = ['client_secret', 'access_token', 'refresh_token'];
+    private const ENCRYPTED = ['client_secret', 'pending_client_secret', 'access_token', 'refresh_token'];
 
     public function __construct(
         private readonly FlagManager $flagManager,
