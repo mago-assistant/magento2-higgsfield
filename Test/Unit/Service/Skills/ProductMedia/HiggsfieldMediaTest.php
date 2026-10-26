@@ -6,105 +6,100 @@ declare(strict_types=1);
 
 namespace MagoAssistant\Higgsfield\Test\Unit\Service\Skills\ProductMedia;
 
-use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Psr7\Response;
-use MagoAssistant\Mago\Logger\ErrorLogger;
-use MagoAssistant\Higgsfield\Service\Client\McpClient;
 use MagoAssistant\Higgsfield\Service\Skills\ProductMedia\HiggsfieldMedia;
+use MagoAssistant\Higgsfield\Test\Unit\Fakes\FakeMcpClient;
+use MagoAssistant\Higgsfield\Test\Unit\Fakes\RecordingHttpClient;
+use MagoAssistant\Mago\Logger\ErrorLogger;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 class HiggsfieldMediaTest extends TestCase
 {
     private const JOB = 'b2cfbf3c-c847-4a2f-b0f9-c0b5740fc4ab';
+    private const UPLOAD_URL = 'https://bucket.s3.amazonaws.com/in.jpg?X-Amz-Signature=x';
 
     /**
-     * @var McpClient&MockObject
+     * @var FakeMcpClient
      */
-    private McpClient $mcp;
+    private FakeMcpClient $mcp;
 
     /**
-     * @var ClientInterface&MockObject
+     * @var RecordingHttpClient
      */
-    private ClientInterface $http;
+    private RecordingHttpClient $http;
 
     protected function setUp(): void
     {
-        $this->mcp = $this->createMock(McpClient::class);
-        $this->mcp->method('isConnected')->willReturn(true);
-        $this->http = $this->createMock(ClientInterface::class);
+        $this->mcp = new FakeMcpClient();
+        $this->http = new RecordingHttpClient();
     }
 
     #[Test]
     public function itUploadsToThePresignedUrlWithoutTheTokenAndConfirms(): void
     {
-        $this->mcp->expects(self::exactly(2))
-            ->method('callTool')
-            ->willReturnCallback(static fn (string $tool, array $args): array => match ($tool) {
-                'media_upload' => self::toolOutput(['uploads' => [[
-                    'upload_url' => 'https://bucket.s3.amazonaws.com/in.jpg?X-Amz-Signature=x',
-                    'media_id' => 'media-1',
-                    'content_type' => 'image/jpeg',
-                ]]]),
-                'media_confirm' => $args === ['type' => 'image', 'media_id' => 'media-1']
-                    ? self::toolOutput(['confirmed' => true])
-                    : ['error' => 'unexpected confirm'],
-                default => ['error' => 'unexpected tool'],
-            });
-        $this->http->expects(self::once())
-            ->method('request')
-            ->with('PUT', 'https://bucket.s3.amazonaws.com/in.jpg?X-Amz-Signature=x', self::callback(
-                static fn (array $options): bool => $options['headers'] === ['Content-Type' => 'image/jpeg']
-                    && $options['body'] === 'bytes'
-            ))
-            ->willReturn(new Response(200));
+        $this->mcp
+            ->withOutput('media_upload', self::toolOutput(['uploads' => [[
+                'upload_url' => self::UPLOAD_URL,
+                'media_id' => 'media-1',
+                'content_type' => 'image/jpeg',
+            ]]]))
+            ->withOutput('media_confirm', self::toolOutput(['confirmed' => true]));
+        $this->http->queue(new Response(200));
 
-        self::assertSame(['media_id' => 'media-1'], $this->media()->uploadImage('bytes', 'image/jpeg', 'in.jpg'));
+        $result = $this->media()->uploadImage('bytes', 'image/jpeg', 'in.jpg');
+
+        self::assertSame(['media_id' => 'media-1'], $result);
+        self::assertSame(['media_upload', 'media_confirm'], array_column($this->mcp->calls, 'name'));
+        self::assertSame(['type' => 'image', 'media_id' => 'media-1'], $this->mcp->calls[1]['arguments']);
+        self::assertCount(1, $this->http->requests);
+        self::assertSame('PUT', $this->http->requests[0]['method']);
+        self::assertSame(self::UPLOAD_URL, $this->http->requests[0]['uri']);
+        self::assertSame(['Content-Type' => 'image/jpeg'], $this->http->requests[0]['options']['headers']);
+        self::assertSame('bytes', $this->http->requests[0]['options']['body']);
     }
 
     #[Test]
     public function itSubmitsOneCreditPaidJobAndReadsItsId(): void
     {
-        $this->mcp->expects(self::once())
-            ->method('callTool')
-            ->with('generate_image', ['params' => [
+        $this->mcp->withOutput('generate_image', self::toolOutput(['results' => [[
+            'id' => strtoupper(self::JOB),
+            'type' => 'image',
+            'status' => 'queued',
+            'model' => 'nano_banana_2',
+        ]]]));
+
+        $result = $this->media()->submit('generate_image', ['model' => 'nano_banana_2']);
+
+        self::assertSame(['job_id' => self::JOB, 'status' => 'queued'], $result);
+        self::assertSame(
+            [['name' => 'generate_image', 'arguments' => ['params' => [
                 'model' => 'nano_banana_2',
                 'count' => 1,
                 'use_unlim' => false,
-            ]])
-            ->willReturn(self::toolOutput(['results' => [[
-                'id' => strtoupper(self::JOB),
-                'type' => 'image',
-                'status' => 'queued',
-                'model' => 'nano_banana_2',
-            ]]]));
-
-        self::assertSame(
-            ['job_id' => self::JOB, 'status' => 'queued'],
-            $this->media()->submit('generate_image', ['model' => 'nano_banana_2'])
+            ]]]],
+            $this->mcp->calls
         );
     }
 
     #[Test]
     public function itReportsAToolErrorWithItsText(): void
     {
-        $this->mcp->method('callTool')->willReturn([
+        $this->mcp->withOutput('generate_video', [
             'structured' => null,
             'text' => 'Insufficient credits',
             'is_error' => true,
         ]);
 
-        self::assertSame(
-            ['error' => 'Higgsfield refused the request: Insufficient credits'],
-            $this->media()->submit('generate_video', ['model' => 'seedance_2_0'])
-        );
+        $result = $this->media()->submit('generate_video', ['model' => 'seedance_2_0']);
+
+        self::assertSame(['error' => 'Higgsfield refused the request: Insufficient credits'], $result);
     }
 
     #[Test]
     public function itReadsTheFullSizeOutputOfACompletedJob(): void
     {
-        $this->mcp->method('callTool')->willReturn(self::toolOutput(['generation' => [
+        $this->mcp->withOutput('job_status', self::toolOutput(['generation' => [
             'id' => self::JOB,
             'type' => 'image',
             'status' => 'completed',
@@ -114,18 +109,22 @@ class HiggsfieldMediaTest extends TestCase
             ],
         ]]));
 
+        $result = $this->media()->status(self::JOB);
+
         self::assertSame(
             ['status' => 'completed', 'type' => 'image', 'urls' => ['https://cdn.example.com/out.png']],
-            $this->media()->status(self::JOB)
+            $result
         );
     }
 
     #[Test]
     public function itReadsThePreflightCost(): void
     {
-        $this->mcp->method('callTool')->willReturn(self::toolOutput(['cost' => ['credits' => 22.5]]));
+        $this->mcp->withOutput('generate_video', self::toolOutput(['cost' => ['credits' => 22.5]]));
 
-        self::assertSame(22.5, $this->media()->cost('generate_video', ['model' => 'seedance_2_0']));
+        $cost = $this->media()->cost('generate_video', ['model' => 'seedance_2_0']);
+
+        self::assertSame(22.5, $cost);
     }
 
     /**

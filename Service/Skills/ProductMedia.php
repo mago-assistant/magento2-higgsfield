@@ -28,6 +28,13 @@ class ProductMedia extends AbstractSkill implements PresentableToolInterface
         return 'Product media (Higgsfield)';
     }
 
+    /**
+     * Status line the chat shows while the action runs.
+     *
+     * @param string $action
+     * @param array<string,mixed> $input
+     * @return string|null
+     */
     public function getStatusMessage(string $action, array $input): ?string
     {
         return self::STATUS_MESSAGES[$action] ?? null;
@@ -41,6 +48,12 @@ class ProductMedia extends AbstractSkill implements PresentableToolInterface
             . 'then check the request until it is completed.';
     }
 
+    /**
+     * ACL resource an admin needs to use this tool.
+     *
+     * @param array<string,mixed> $input
+     * @return string
+     */
     public function getMagentoAcl(array $input = []): string
     {
         return 'Magento_Catalog::products';

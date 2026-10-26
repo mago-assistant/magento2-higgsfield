@@ -5,6 +5,16 @@ chat. The admin asks for a scene, the assistant writes the prompt, shows what it
 Higgsfield renders a new image (Nano Banana 2) or a short video (Seedance 2.0 or Kling 3.0) from the
 product's main image. A finished image can go straight into the product gallery.
 
+## Compatibility
+
+| | Supported |
+|---|---|
+| Magento Open Source | 2.4.8 and later (CI: 2.4.8-p5 and 2.4.9) |
+| Mage-OS | Releases built on Magento 2.4.8 or later (CI: 3.6.0) |
+| PHP | 8.2 to 8.5 (CI: 8.4 and 8.5) |
+| Mago core | `mago-assistant/magento2-mago` 1.1 or later |
+| Storefront | Admin only. Images it adds to the gallery show up in any theme (Luma, Hyvä) or headless frontend like other product images. |
+
 ## What it does
 
 Ask the assistant, in the admin chat panel:
@@ -43,7 +53,11 @@ Skills & Permissions.
 
 ## Connect
 
-Stores › Configuration › Mago Assistant › Higgsfield › **Connect with Higgsfield**
+Stores › Configuration › Mago Assistant › Higgsfield › Connection
+
+| Setting | Default | Scope | What it does |
+|---|---|---|---|
+| Higgsfield Account | Not connected | Default | Shows which Higgsfield account is connected, with **Connect with Higgsfield**, **Reconnect** and **Disconnect** buttons. There are no other settings. |
 
 There is no API key to paste. The shop registers itself as OAuth client of the Higgsfield MCP server
 (dynamic client registration), the admin signs in at Higgsfield and approves, and Higgsfield sends
@@ -79,17 +93,44 @@ The configuration ACL resource is `MagoAssistant_Higgsfield::config`.
 | `seedance_2_0` | videos (default) | 4–15 s (default 5), 16:9 (default), 9:16, 4:3, 3:4, 1:1, 21:9; 480p, 720p (default), 1080p; optional audio |
 | `kling3_0` | videos | 3–15 s, 16:9, 9:16 or 1:1; optional sound |
 
+## Troubleshooting
+
+- **"The Higgsfield connection has expired."** The access token could not be refreshed. Click
+  **Reconnect** on the configuration page. When the page says Higgsfield gave no refresh token, this
+  happens every time the token expires.
+- **"The Higgsfield connection was not started from this shop."** The login at Higgsfield was
+  started from another admin URL, or the admin session expired halfway. Start it again from the
+  configuration page. Reconnecting from a different admin URL registers a new OAuth client, and the
+  old connection keeps working until the new login completes.
+- **"... has no main image to generate from."** Generations start from the product's main image
+  (JPEG, PNG or WebP). Give the product a main image in the default store view.
+- **A finished request can't be downloaded any more.** Higgsfield keeps outputs for about seven
+  days. Run `check_status` within that time; once downloaded, the files stay in
+  `pub/media/mago/higgsfield/`.
+
 ## Development
 
-The unit tests run from a Magento install that has the add-on and Mago core installed:
+The unit tests run from a Magento install that has the add-on and Mago core installed, with
+Magento's unit test configuration (it generates the factories some tests need):
 
 ```bash
-vendor/bin/phpunit -c vendor/mago-assistant/magento2-higgsfield/phpunit.xml.dist
+vendor/bin/phpunit -c dev/tests/unit/phpunit.xml.dist vendor/mago-assistant/magento2-higgsfield/Test/Unit
 ```
 
-CI runs PHP lint, the Magento coding standard, PHPStan (level 8) and the unit tests against the
-supported Magento Open Source and Mage-OS versions.
+PHPStan and the coding standard run from the add-on's own folder after `composer install`:
 
-## License
+```bash
+vendor/bin/phpstan analyse
+vendor/bin/phpcs
+```
 
-MIT
+CI runs graycoreio's check-extension workflow on every push and pull request: `setup:di:compile`,
+the Magento coding standard, unit and integration tests and PHPStan level 8 on the supported
+Magento Open Source and Mage-OS versions, plus `composer audit`, a PHP lint on 8.2 to 8.5 and
+[zizmor](https://docs.zizmor.sh/) on the workflows themselves.
+
+## Links
+
+- [CHANGELOG](CHANGELOG.md)
+- [Security policy](SECURITY.md)
+- [License](LICENSE): MIT

@@ -2,7 +2,11 @@
 <ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="PHP_CodeSniffer" xsi:noNamespaceSchemaLocation="phpcs.xsd">
     <description>Mago Assistant Higgsfield add-on configuration for CodeSniffer.</description>
 
+    <file>.</file>
+
     <rule ref="Magento2">
+        <!-- Methods are fully typed, so a docblock on every one would only repeat the signature.
+             Docblocks are written where they add something: array shapes or the why. -->
         <exclude name="Magento2.Annotation.MethodAnnotationStructure.NoCommentBlock"/>
     </rule>
 

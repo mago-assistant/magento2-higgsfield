@@ -1,0 +1,36 @@
+{
+  "checked_at": "2026-10-26",
+  "skill_version": 2,
+  "target": "own",
+  "areas": {
+    "identity": "partial",
+    "license": "pass",
+    "integrity": "pass",
+    "admin_ux": "pass",
+    "ci": "pass",
+    "static_analysis": "pass",
+    "tests": "partial",
+    "security": "pass",
+    "documentation": "partial",
+    "hygiene": "pass"
+  },
+  "decisions": {
+    "tests.behavior_tests": {
+      "choice": "declined",
+      "date": "2026-10-26",
+      "reason": "Only the PHPUnit notices were fixed; no new coverage for TokenStore, MediaStorage, ProductImageSource or the OAuth callback",
+      "ask_again": "next_run"
+    },
+    "documentation.screenshots": {
+      "choice": "declined",
+      "date": "2026-10-26",
+      "ask_again": "next_run"
+    }
+  },
+  "notes": [
+    "CI was reproduced locally against core 1.1.0 and ai-base 1.0.0 but has not run on GitHub yet",
+    "LICENSE holder changed from Henk Valk to Mago Assistant; needs Henk's agreement before release",
+    "Package name magento2-higgsfield doesn't follow <vendor>/module-<name>, but matches core's magento2-mago",
+    "Mocks and stubs remain in most unit tests; only HiggsfieldMediaTest was moved to fakes"
+  ]
+}

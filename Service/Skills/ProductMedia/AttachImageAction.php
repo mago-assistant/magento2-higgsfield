@@ -49,6 +49,11 @@ class AttachImageAction implements ActionInterface, ValidatingActionInterface
             . 'the storefront and without roles unless visible or roles are given';
     }
 
+    /**
+     * JSON schema of the parameters the action takes.
+     *
+     * @return array<string,mixed>
+     */
     public function getParameterSchema(): array
     {
         return [
@@ -99,6 +104,12 @@ class AttachImageAction implements ActionInterface, ValidatingActionInterface
             . 'or remove it.';
     }
 
+    /**
+     * The refusal execute() would return for this input, or null when it can run.
+     *
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>|null
+     */
     public function findRefusal(array $params): ?array
     {
         $found = $this->resolve($params);
@@ -106,6 +117,13 @@ class AttachImageAction implements ActionInterface, ValidatingActionInterface
         return isset($found['error']) ? ['error' => $found['error']] : null;
     }
 
+    /**
+     * Runs the action.
+     *
+     * @param array<string,mixed> $params
+     * @param int $adminUserId
+     * @return array<string,mixed>
+     */
     public function execute(array $params, int $adminUserId): array
     {
         $found = $this->resolve($params);

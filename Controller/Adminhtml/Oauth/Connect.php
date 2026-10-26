@@ -38,8 +38,6 @@ class Connect extends Action implements HttpGetActionInterface
                 ->setPath('adminhtml/system_config/edit', ['section' => self::CONFIG_SECTION]);
         }
 
-        // setData() reaches the session storage through SessionManager::__call().
-        // @phpstan-ignore method.notFound
         $this->_session->setData(self::SESSION_KEY, [
             'state' => $start['state'],
             'verifier' => $start['verifier'],

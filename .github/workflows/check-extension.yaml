@@ -1,0 +1,72 @@
+name: Check Extension
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compute-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      mage-os: ${{ steps.mage-os.outputs.matrix }}
+      magento-open-source: ${{ steps.magento-open-source.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: graycoreio/github-actions-magento2/supported-version@4de1565d1732187111b6d2eeb23c0ee3a9fc23b7 # v8.12.0
+        id: mage-os
+        with:
+          project: mage-os
+          kind: currently-supported
+      - uses: graycoreio/github-actions-magento2/supported-version@4de1565d1732187111b6d2eeb23c0ee3a9fc23b7 # v8.12.0
+        id: supported-magento-open-source
+        with:
+          project: magento-open-source
+          kind: currently-supported
+      # Mago core requires Magento 2.4.8 or later, so older lines that are still supported can't install it.
+      - name: Drop Magento versions below 2.4.8
+        id: magento-open-source
+        env:
+          MATRIX: ${{ steps.supported-magento-open-source.outputs.matrix }}
+        run: |
+          echo "matrix=$(echo "$MATRIX" | jq -c '(.magento |= map(select(test(":2\\.4\\.[0-7](-|$)") | not))) | (.include |= map(select(.magento | test(":2\\.4\\.[0-7](-|$)") | not)))')" >> "$GITHUB_OUTPUT"
+
+  # The Mage-OS and Magento packages come from different repositories, so each project gets its own run.
+  check-extension-mage-os:
+    needs: compute-matrix
+    uses: graycoreio/github-actions-magento2/.github/workflows/check-extension.yaml@4de1565d1732187111b6d2eeb23c0ee3a9fc23b7 # v8.12.0
+    with:
+      matrix: ${{ needs.compute-matrix.outputs.mage-os }}
+      magento_repository: https://repo.mage-os.org/
+
+  check-extension-magento-open-source:
+    needs: compute-matrix
+    uses: graycoreio/github-actions-magento2/.github/workflows/check-extension.yaml@4de1565d1732187111b6d2eeb23c0ee3a9fc23b7 # v8.12.0
+    with:
+      matrix: ${{ needs.compute-matrix.outputs.magento-open-source }}
+
+  composer-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          coverage: none
+      - name: Resolve dependencies without installing them
+        run: composer update --no-install --no-interaction --no-progress
+      # Magento core itself pulls in the abandoned packages (laminas/laminas-loader,
+      # magento/module-catalog-inventory), so they are reported but don't fail the build.
+      - name: Audit resolved dependencies
+        run: composer audit --locked --no-dev --abandoned=report

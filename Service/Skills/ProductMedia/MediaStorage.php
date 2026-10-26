@@ -56,7 +56,7 @@ class MediaStorage
         $files = [];
         try {
             $media->create($dir);
-            foreach (array_values($urls) as $index => $url) {
+            foreach ($urls as $index => $url) {
                 $file = sprintf('%s/%d.%s', $dir, $index + 1, $this->extension($url, $defaultExtension));
                 if (!$this->client->download($url, $media->getAbsolutePath($file))) {
                     $media->delete($dir);
