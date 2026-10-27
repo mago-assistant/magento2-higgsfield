@@ -11,6 +11,13 @@
         "ai-video"
     ],
     "license": "MIT",
+    "authors": [
+        {
+            "name": "Henk Valk",
+            "email": "info@henkvalk.nl",
+            "role": "Author"
+        }
+    ],
     "support": {
         "issues": "https://github.com/mago-assistant/magento2-higgsfield/issues",
         "source": "https://github.com/mago-assistant/magento2-higgsfield",
