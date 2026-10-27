@@ -19,11 +19,11 @@ product's main image. A finished image can go straight into the product gallery.
 
 Ask the assistant, in the admin chat panel:
 
-- *Maak een lifestyle-foto van SKU ABC-123 op een keukentafel, vierkant*
-- *Maak een video van 5 seconden waarin JACKET-BLK langzaam ronddraait*
-- *Is die afbeelding al klaar?*
-- *Zet afbeelding 1 bij ABC-123 in de galerij, verborgen*
-- *Maak hem de thumbnail en zet hem zichtbaar*
+- *Make a lifestyle photo of SKU ABC-123 on a kitchen table, square*
+- *Make a 5 second video of JACKET-BLK slowly spinning around*
+- *Is that image ready yet?*
+- *Add image 1 to the ABC-123 gallery, hidden*
+- *Make it the thumbnail and make it visible*
 
 The skill is `product_media`:
 
