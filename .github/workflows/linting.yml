@@ -2,22 +2,31 @@ name: Lint PHP files
 
 on: [push, pull_request, workflow_dispatch]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  php-83:
+  lint:
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4', '8.5']
+    name: PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
     steps:
-      - uses: prestashop/github-action-php-lint/8.3@v2.3.1
-
-  php-84:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: prestashop/github-action-php-lint/8.4@v2.3.1
-
-  php-85:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: prestashop/github-action-php-lint/8.5@08f47878fdedbcecb581a8c93f507c7d60b2c956
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The 8.5 linter is on master only; no tagged release has it yet.
+      - uses: prestashop/github-action-php-lint/8.2@08f47878fdedbcecb581a8c93f507c7d60b2c956 # master
+        if: matrix.php == '8.2'
+      - uses: prestashop/github-action-php-lint/8.3@08f47878fdedbcecb581a8c93f507c7d60b2c956 # master
+        if: matrix.php == '8.3'
+      - uses: prestashop/github-action-php-lint/8.4@08f47878fdedbcecb581a8c93f507c7d60b2c956 # master
+        if: matrix.php == '8.4'
+      - uses: prestashop/github-action-php-lint/8.5@08f47878fdedbcecb581a8c93f507c7d60b2c956 # master
+        if: matrix.php == '8.5'

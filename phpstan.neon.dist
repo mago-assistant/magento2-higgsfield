@@ -1,13 +1,10 @@
+includes:
+    - vendor/bitexpert/phpstan-magento/extension.neon
+
 parameters:
     level: 8
-    reportUnmatchedIgnoredErrors: false
-    treatPhpDocTypesAsCertain: false
     paths:
         - .
     excludePaths:
         - Test/*
         - vendor/*
-    ignoreErrors:
-        - '#^Call to an undefined method .*Interface::.*\(\)\.$#'
-        - '#^Call to an undefined method Magento\\Framework\\Data\\Form\\Element\\AbstractElement::uns.*\(\)\.$#'
-        - identifier: missingType.iterableValue

@@ -60,7 +60,7 @@ class ProductImageSource
             return $product;
         }
 
-        $file = (string)$product->getData('image');
+        $file = (string)$product->getCustomAttribute('image')?->getValue();
         if ($file === '' || $file === 'no_selection') {
             return ['error' => 'Product "' . $product->getSku() . '" has no main image to generate from.'];
         }

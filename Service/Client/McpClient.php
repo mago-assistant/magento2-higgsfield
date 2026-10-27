@@ -20,6 +20,7 @@ class McpClient
 {
     private const PROTOCOL_VERSION = '2025-06-18';
     private const TIMEOUT = 120;
+    private const MAX_SESSION_ATTEMPTS = 2;
 
     /**
      * @var string|null Session id the server assigned at initialize
@@ -108,9 +109,10 @@ class McpClient
      *
      * @param string $method
      * @param array<string,mixed> $params
+     * @param int $sessionAttempt
      * @return array<string,mixed> result, or error
      */
-    private function rpc(string $method, array $params): array
+    private function rpc(string $method, array $params, int $sessionAttempt = 1): array
     {
         if ($this->sessionId === null) {
             $init = $this->send('initialize', [
@@ -124,17 +126,20 @@ class McpClient
             $this->notify('notifications/initialized');
         }
 
-        return $this->send($method, $params);
+        return $this->send($method, $params, $sessionAttempt);
     }
 
     /**
-     * One request with a single retry after refreshing an expired token.
+     * One request, retried once after a token refresh and once in a new session.
+     *
+     * The session retry covers a server that dropped the current session (HTTP 404).
      *
      * @param string $method
      * @param array<string,mixed> $params
+     * @param int $sessionAttempt
      * @return array<string,mixed>
      */
-    private function send(string $method, array $params): array
+    private function send(string $method, array $params, int $sessionAttempt = 1): array
     {
         $id = $this->nextId++;
         $body = ['jsonrpc' => '2.0', 'id' => $id, 'method' => $method, 'params' => (object)$params];
@@ -155,9 +160,9 @@ class McpClient
         if ($status === 404 && $this->sessionId !== null) {
             // The server dropped the session; start a new one.
             $this->sessionId = null;
-            return $method === 'initialize'
+            return $method === 'initialize' || $sessionAttempt >= self::MAX_SESSION_ATTEMPTS
                 ? ['error' => 'Higgsfield ended the session.']
-                : $this->rpc($method, $params);
+                : $this->rpc($method, $params, $sessionAttempt + 1);
         }
         if ($status < 200 || $status >= 300) {
             $this->errorLogger->addLog('Higgsfield MCP', $method . ' HTTP ' . $status);

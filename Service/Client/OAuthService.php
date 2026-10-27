@@ -87,11 +87,12 @@ class OAuthService
     public function completeAuthorization(string $code, string $verifier, string $redirectUri): ?string
     {
         $stored = $this->tokenStore->load();
-        if (!isset($stored['client_id'], $stored['token_endpoint'])) {
+        $client = $this->clientForCallback($stored, $redirectUri);
+        if ($client === null) {
             return 'The Higgsfield connection was not started from this shop. Try connecting again.';
         }
 
-        $tokens = $this->tokenRequest($stored, [
+        $tokens = $this->tokenRequest($client, [
             'grant_type' => 'authorization_code',
             'code' => $code,
             'redirect_uri' => $redirectUri,
@@ -102,6 +103,11 @@ class OAuthService
             return (string)$tokens['error'];
         }
 
+        if ($client['client_id'] !== ($stored['client_id'] ?? null)) {
+            // A new client invalidates tokens issued to the previous one.
+            $this->tokenStore->clear();
+            $this->tokenStore->save($client);
+        }
         $this->storeTokens($tokens, true);
 
         return null;
@@ -159,12 +165,15 @@ class OAuthService
     public function status(): array
     {
         $stored = $this->tokenStore->load();
+        $expiresAt = (int)($stored['expires_at'] ?? 0);
+        $canRefresh = ($stored['refresh_token'] ?? '') !== '';
+        $isUsable = $expiresAt === 0 || $expiresAt > time() || $canRefresh;
 
         return [
-            'connected' => ($stored['access_token'] ?? '') !== '',
+            'connected' => ($stored['access_token'] ?? '') !== '' && $isUsable,
             'email' => (string)($stored['email'] ?? ''),
-            'expires_at' => (int)($stored['expires_at'] ?? 0),
-            'can_refresh' => ($stored['refresh_token'] ?? '') !== '',
+            'expires_at' => $expiresAt,
+            'can_refresh' => $canRefresh,
         ];
     }
 
@@ -213,6 +222,9 @@ class OAuthService
             $this->tokenStore->save(['token_endpoint' => (string)$metadata['token_endpoint']]);
             return ['client_id' => (string)$stored['client_id']];
         }
+        if (isset($stored['pending_client_id']) && ($stored['pending_redirect_uri'] ?? '') === $redirectUri) {
+            return ['client_id' => (string)$stored['pending_client_id']];
+        }
 
         $client = $this->request('POST', (string)$metadata['registration_endpoint'], [
             'json' => [
@@ -231,7 +243,17 @@ class OAuthService
             return ['error' => 'Higgsfield did not register the shop as OAuth client.'];
         }
 
-        // A new client invalidates tokens issued to the previous one.
+        if (($stored['access_token'] ?? '') !== '') {
+            // Keep the working connection until the admin completes the login with the new client.
+            $this->tokenStore->save([
+                'pending_client_id' => (string)$client['client_id'],
+                'pending_client_secret' => (string)($client['client_secret'] ?? ''),
+                'pending_redirect_uri' => $redirectUri,
+                'token_endpoint' => (string)$metadata['token_endpoint'],
+            ]);
+            return ['client_id' => (string)$client['client_id']];
+        }
+
         $this->tokenStore->clear();
         $this->tokenStore->save([
             'client_id' => (string)$client['client_id'],
@@ -241,6 +263,32 @@ class OAuthService
         ]);
 
         return ['client_id' => (string)$client['client_id']];
+    }
+
+    /**
+     * The client the authorization code was issued to, or null when no login was started here.
+     *
+     * That is the pending client when the login was started from its redirect URI, otherwise the
+     * registered one.
+     *
+     * @param array<string,mixed> $stored
+     * @param string $redirectUri
+     * @return array<string,mixed>|null
+     */
+    private function clientForCallback(array $stored, string $redirectUri): ?array
+    {
+        if (isset($stored['pending_client_id'], $stored['token_endpoint'])
+            && ($stored['pending_redirect_uri'] ?? '') === $redirectUri
+        ) {
+            return [
+                'client_id' => (string)$stored['pending_client_id'],
+                'client_secret' => (string)($stored['pending_client_secret'] ?? ''),
+                'redirect_uri' => $redirectUri,
+                'token_endpoint' => (string)$stored['token_endpoint'],
+            ];
+        }
+
+        return isset($stored['client_id'], $stored['token_endpoint']) ? $stored : null;
     }
 
     /**

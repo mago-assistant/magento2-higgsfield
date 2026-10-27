@@ -18,6 +18,7 @@ use PHPUnit\Framework\TestCase;
 class OAuthServiceTest extends TestCase
 {
     private const REDIRECT = 'https://shop.test/admin/mago_higgsfield/oauth/callback/';
+    private const OTHER_REDIRECT = 'https://admin.shop.test/admin/mago_higgsfield/oauth/callback/';
     private const METADATA = [
         'authorization_endpoint' => 'https://auth.higgsfield.test/authorize',
         'token_endpoint' => 'https://auth.higgsfield.test/token',
@@ -75,6 +76,53 @@ class OAuthServiceTest extends TestCase
         self::assertCount(1, $this->http->requests);
         self::assertStringContainsString('client_id=client-1', $start['url']);
         self::assertSame('kept', $this->store->data['access_token']);
+    }
+
+    #[Test]
+    public function itKeepsTheWorkingConnectionWhileAReconnectFromAnotherUrlIsPending(): void
+    {
+        $this->store->data = [
+            'client_id' => 'client-1',
+            'redirect_uri' => self::OTHER_REDIRECT,
+            'token_endpoint' => self::METADATA['token_endpoint'],
+            'access_token' => 'kept',
+        ];
+        $this->http->queue(
+            self::json(self::METADATA),
+            self::json(['client_id' => 'client-2', 'client_secret' => 's2'])
+        );
+
+        $start = $this->oauth()->startAuthorization(self::REDIRECT);
+
+        self::assertStringContainsString('client_id=client-2', $start['url']);
+        self::assertSame('client-1', $this->store->data['client_id']);
+        self::assertSame('kept', $this->oauth()->accessToken());
+    }
+
+    #[Test]
+    public function itSwitchesToTheNewClientOnceTheReconnectCompletes(): void
+    {
+        $this->store->data = [
+            'client_id' => 'client-1',
+            'redirect_uri' => self::OTHER_REDIRECT,
+            'token_endpoint' => self::METADATA['token_endpoint'],
+            'access_token' => 'old',
+            'email' => 'old@example.com',
+            'pending_client_id' => 'client-2',
+            'pending_client_secret' => 's2',
+            'pending_redirect_uri' => self::REDIRECT,
+        ];
+        $this->http->queue(self::json(['access_token' => 'new', 'expires_in' => 3600]));
+
+        self::assertNull($this->oauth()->completeAuthorization('code-1', 'verifier-1', self::REDIRECT));
+
+        $sent = $this->http->requests[0]['options']['form_params'];
+        self::assertSame(['client-2', 's2'], [$sent['client_id'], $sent['client_secret']]);
+        self::assertSame('client-2', $this->store->data['client_id']);
+        self::assertSame(self::REDIRECT, $this->store->data['redirect_uri']);
+        self::assertSame('new', $this->store->data['access_token']);
+        self::assertArrayNotHasKey('pending_client_id', $this->store->data);
+        self::assertArrayNotHasKey('email', $this->store->data);
     }
 
     #[Test]
@@ -162,6 +210,22 @@ class OAuthServiceTest extends TestCase
         $this->store->data = ['access_token' => 'old', 'expires_at' => time() - 10];
 
         self::assertFalse($this->oauth()->isConnected());
+    }
+
+    #[Test]
+    public function itShowsAnExpiredTokenWithoutRefreshTokenAsNotConnected(): void
+    {
+        $this->store->data = ['access_token' => 'old', 'expires_at' => time() - 10];
+
+        self::assertFalse($this->oauth()->status()['connected']);
+    }
+
+    #[Test]
+    public function itShowsAnExpiredTokenThatCanBeRefreshedAsConnected(): void
+    {
+        $this->store->data = ['access_token' => 'old', 'refresh_token' => 'r', 'expires_at' => time() - 10];
+
+        self::assertTrue($this->oauth()->status()['connected']);
     }
 
     #[Test]

@@ -31,6 +31,11 @@ class CheckStatusAction implements ActionInterface
             . 'links to the saved image(s) or video';
     }
 
+    /**
+     * JSON schema of the parameters the action takes.
+     *
+     * @return array<string,mixed>
+     */
     public function getParameterSchema(): array
     {
         return [
@@ -70,6 +75,13 @@ class CheckStatusAction implements ActionInterface
             . 'queued or in progress, say so and offer to check again later; do not poll in a loop.';
     }
 
+    /**
+     * Runs the action.
+     *
+     * @param array<string,mixed> $params
+     * @param int $adminUserId
+     * @return array<string,mixed>
+     */
     public function execute(array $params, int $adminUserId): array
     {
         $requestId = strtolower(trim((string)($params['request_id'] ?? '')));

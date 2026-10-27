@@ -28,6 +28,11 @@ class GenerateImageAction extends AbstractGenerateAction
             . 'check_status';
     }
 
+    /**
+     * JSON schema of the parameters the action takes.
+     *
+     * @return array<string,mixed>
+     */
     public function getParameterSchema(): array
     {
         return [

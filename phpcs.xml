@@ -2,7 +2,15 @@
 <ruleset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" name="PHP_CodeSniffer" xsi:noNamespaceSchemaLocation="phpcs.xsd">
     <description>Mago Assistant Higgsfield add-on configuration for CodeSniffer.</description>
 
+    <!-- With the Mage-OS repositories in composer.json the PHPCompatibility fork installs under
+         vendor/mage-os, but the Graycore coding-standard action registers vendor/magento paths only.
+         Ruleset config wins over CodeSniffer.conf, the same fix ai-base uses. -->
+    <config name="installed_paths" value="vendor/magento/magento-coding-standard,vendor/mage-os/php-compatibility-fork,vendor/phpcsstandards/phpcsutils"/>
+    <file>.</file>
+
     <rule ref="Magento2">
+        <!-- Methods are fully typed, so a docblock on every one would only repeat the signature.
+             Docblocks are written where they add something: array shapes or the why. -->
         <exclude name="Magento2.Annotation.MethodAnnotationStructure.NoCommentBlock"/>
     </rule>
 

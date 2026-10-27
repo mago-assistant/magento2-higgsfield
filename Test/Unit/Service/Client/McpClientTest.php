@@ -123,6 +123,42 @@ class McpClientTest extends TestCase
     }
 
     #[Test]
+    public function itOpensANewSessionWhenTheServerDropsTheOldOne(): void
+    {
+        $this->http->queue(
+            self::rpc(1, [], ['Mcp-Session-Id' => 'session-1']),
+            new Response(202),
+            new Response(404),
+            self::rpc(3, [], ['Mcp-Session-Id' => 'session-2']),
+            new Response(202),
+            self::rpc(4, ['structuredContent' => ['ok' => 1], 'content' => []])
+        );
+
+        $result = $this->client()->callTool('job_status', []);
+
+        self::assertSame(['ok' => 1], $result['structured']);
+        self::assertSame('session-2', $this->http->requests[5]['options']['headers']['Mcp-Session-Id']);
+    }
+
+    #[Test]
+    public function itGivesUpWhenTheNewSessionIsDroppedToo(): void
+    {
+        $this->http->queue(
+            self::rpc(1, [], ['Mcp-Session-Id' => 'session-1']),
+            new Response(202),
+            new Response(404),
+            self::rpc(3, [], ['Mcp-Session-Id' => 'session-2']),
+            new Response(202),
+            new Response(404)
+        );
+
+        $result = $this->client()->callTool('job_status', []);
+
+        self::assertSame(['error' => 'Higgsfield ended the session.'], $result);
+        self::assertCount(6, $this->http->requests);
+    }
+
+    #[Test]
     public function itSendsNothingWhenNotConnected(): void
     {
         $this->oauth = $this->createStub(OAuthService::class);

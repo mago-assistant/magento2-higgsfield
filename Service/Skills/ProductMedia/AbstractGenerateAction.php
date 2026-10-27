@@ -88,6 +88,12 @@ abstract class AbstractGenerateAction implements IrreversibleActionInterface, Va
         ];
     }
 
+    /**
+     * The refusal execute() would return for this input, or null when it can run.
+     *
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>|null
+     */
     public function findRefusal(array $params): ?array
     {
         if (!$this->client->isConnected()) {
@@ -112,6 +118,13 @@ abstract class AbstractGenerateAction implements IrreversibleActionInterface, Va
         return isset($product['error']) ? ['error' => $product['error']] : null;
     }
 
+    /**
+     * What the action will do, shown to the admin before they confirm it.
+     *
+     * @param array<string,mixed> $params
+     * @param int $adminUserId
+     * @return string[]
+     */
     public function getImpacts(array $params, int $adminUserId): array
     {
         $product = $this->imageSource->find((string)($params['sku'] ?? ''));
@@ -137,6 +150,13 @@ abstract class AbstractGenerateAction implements IrreversibleActionInterface, Va
         ];
     }
 
+    /**
+     * Runs the action.
+     *
+     * @param array<string,mixed> $params
+     * @param int $adminUserId
+     * @return array<string,mixed>
+     */
     public function execute(array $params, int $adminUserId): array
     {
         $refusal = $this->findRefusal($params);

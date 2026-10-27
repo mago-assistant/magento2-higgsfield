@@ -6,7 +6,7 @@
                 <resource id="Magento_Backend::stores">
                     <resource id="Magento_Backend::stores_settings">
                         <resource id="Magento_Config::config">
-                            <resource id="MagoAssistant_Higgsfield::config" title="Higgsfield Configuration" sortOrder="12"/>
+                            <resource id="MagoAssistant_Higgsfield::config" title="Higgsfield Configuration" translate="title" sortOrder="12"/>
                         </resource>
                     </resource>
                 </resource>
